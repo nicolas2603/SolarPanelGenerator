@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="styleSheet">
+    <string>
+QLineEdit { 
+    padding: 6px; 
+    border: 1px solid #bdc3c7; 
+    border-radius: 4px; 
+}
+QLineEdit:focus { 
+    border: 2px solid #3498db; 
+    border-radius: 4px; 
+}
+QComboBox { 
+    padding: 5px; 
+    border: 1px solid #bdc3c7; 
+    border-radius: 4px; 
+}
+QComboBox:focus { 
+    border: 2px solid #3498db; 
+    border-radius: 4px; 
+}
+    </string>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>480</width>
+    <height>650</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>SolarPanelGenerator</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>../icons/solar-energy.svg</normaloff>../icons/solar-energy.svg</iconset>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>12</number>
+   </property>
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
+   
+   <!-- En-tête avec titre et description -->
+   <item>
+    <widget class="QFrame" name="headerFrame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <property name="styleSheet">
+      <string>QFrame { background-color: #f0f0f0; border-radius: 8px; padding: 8px; }</string>
+     </property>
+     <layout class="QVBoxLayout" name="headerLayout">
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600; color:#2c3e50;&quot;&gt;Générateur de Panneaux Solaires&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="descriptionLabel">
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p style=&quot;color:#7f8c8d;&quot;&gt;Génération optimisée de panneaux solaires avec ou sans calcul du taux de recouvrement&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Groupe Source -->
+   <item>
+    <widget class="QGroupBox" name="sourceGroupBox">
+     <property name="title">
+      <string>Source des données</string>
+     </property>
+     <property name="styleSheet">
+      <string>QGroupBox { font-weight: bold; color: #34495e; border: 2px solid #bdc3c7; border-radius: 8px; margin-top: 1ex; padding-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QFormLayout" name="sourceFormLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="layerLabel">
+        <property name="text">
+         <string>Couche de polygones :</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="layerComboBox">
+        <property name="styleSheet">
+         <string>QComboBox { padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QComboBox:focus { padding: 5px; border: 2px solid #3498db; border-radius: 4px; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QCheckBox" name="selectionOnlyCheckBox">
+        <property name="text">
+         <string>✓ Utiliser uniquement la sélection</string>
+        </property>
+        <property name="styleSheet">
+         <string>QCheckBox { color: #2c3e50; }</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Groupe Dimensions des panneaux -->
+   <!-- Groupe Dimensions des panneaux - VERSION CORRIGÉE -->
+   <item>
+    <widget class="QGroupBox" name="panelGroupBox">
+     <property name="title">
+      <string>Dimensions des panneaux</string>
+     </property>
+     <property name="styleSheet">
+      <string>QGroupBox { font-weight: bold; color: #34495e; border: 2px solid #bdc3c7; border-radius: 8px; margin-top: 1ex; padding-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QVBoxLayout" name="panelMainLayout">
+      <!-- Première ligne : Sélection de modèle -->
+      <item>
+       <layout class="QHBoxLayout" name="modelSelectionLayout">
+        <item>
+         <widget class="QLabel" name="modelLabel">
+          <property name="text">
+           <string>Modèle :</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="modelsComboBox">
+          <property name="styleSheet">
+           <string>QComboBox { padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QComboBox:focus { border: 2px solid #3498db; }</string>
+          </property>
+          <property name="toolTip">
+           <string>Sélectionnez un modèle prédéfini ou utilisez la saisie manuelle</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="modelHorizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      
+      <!-- Deuxième ligne : Dimensions -->
+      <item>
+       <layout class="QGridLayout" name="panelGridLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="lengthLabel">
+          <property name="text">
+           <string>Longueur (m) :</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="lengthLineEdit">
+          <property name="placeholderText">
+           <string>ex: 2.0</string>
+          </property>
+          <property name="styleSheet">
+           <string>QLineEdit { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QLineEdit:focus { padding: 6px; border: 2px solid #3498db; border-radius: 4px; }</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="widthLabel">
+          <property name="text">
+           <string>Largeur (m) :</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QLineEdit" name="widthLineEdit">
+          <property name="placeholderText">
+           <string>ex: 1.0</string>
+          </property>
+          <property name="styleSheet">
+           <string>QLineEdit { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QLineEdit:focus { padding: 6px; border: 2px solid #3498db; border-radius: 4px; }</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <widget class="QCheckBox" name="trackerCheckBox">
+          <property name="text">
+           <string>Panneaux en mode Tracker</string>
+          </property>
+          <property name="styleSheet">
+           <string>QCheckBox { color: #e67e22; font-weight: bold; }</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2" colspan="2">
+         <widget class="QCheckBox" name="halfPanelCheckBox">
+          <property name="text">
+           <string>Autoriser les demi-tables</string>
+          </property>
+          <property name="styleSheet">
+           <string>QCheckBox { color: #2c3e50; }</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Groupe Espacements -->
+   <item>
+    <widget class="QGroupBox" name="spacingGroupBox">
+     <property name="title">
+      <string>Espacements et marges</string>
+     </property>
+     <property name="styleSheet">
+      <string>QGroupBox { font-weight: bold; color: #34495e; border: 2px solid #bdc3c7; border-radius: 8px; margin-top: 1ex; padding-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QFormLayout" name="spacingFormLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="hSpacingLabel">
+        <property name="text">
+         <string>Espacement entre panneaux (m) :</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="hSpacingLineEdit">
+        <property name="text">
+         <string>0.2</string>
+        </property>
+        <property name="placeholderText">
+         <string>par défaut 0.2</string>
+        </property>
+        <property name="styleSheet">
+         <string>QLineEdit { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QLineEdit:focus { padding: 6px; border: 2px solid #3498db; border-radius: 4px; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="vSpacingLabel">
+        <property name="text">
+         <string>Espacement interrang (m) :</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="vSpacingLineEdit">
+        <property name="placeholderText">
+         <string>ex: 3.0</string>
+        </property>
+        <property name="styleSheet">
+         <string>QLineEdit { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QLineEdit:focus { padding: 6px; border: 2px solid #3498db; border-radius: 4px; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="edgeMarginLabel">
+        <property name="text">
+         <string>Marge de sécurité (m) :</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="edgeMarginLineEdit">
+        <property name="text">
+         <string>1.0</string>
+        </property>
+        <property name="placeholderText">
+         <string>par défaut 1.0</string>
+        </property>
+        <property name="styleSheet">
+         <string>QLineEdit { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
+QLineEdit:focus { padding: 6px; border: 2px solid #3498db; border-radius: 4px; }</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Groupe Recouvrement -->
+   <!-- Groupe Recouvrement - Version modifiée -->
+   <item>
+     <widget class="QGroupBox" name="coverageGroupBox">
+       <property name="title">
+         <string>Calcul de recouvrement</string>
+       </property>
+       <property name="styleSheet">
+         <string>QGroupBox { font-weight: bold; color: #34495e; border: 2px solid #bdc3c7; border-radius: 8px; margin-top: 1ex; padding-top: 10px; }
+   QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+       </property>
+       <layout class="QVBoxLayout" name="coverageLayout">
+         <!-- Première ligne : Mode + ComboBox + CheckBox -->
+         <item>
+           <layout class="QHBoxLayout" name="coverageOptionsLayout">
+             <item>
+               <widget class="QLabel" name="recouvrementLabel">
+                 <property name="text">
+                   <string>Mode :</string>
+                 </property>
+               </widget>
+             </item>
+             <item>
+               <widget class="QComboBox" name="recouvrementComboBox">
+                 <property name="styleSheet">
+                   <string>QComboBox { padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; }
+   QComboBox:focus { padding: 5px; border: 2px solid #27ae60; border-radius: 4px; }</string>
+                 </property>
+               </widget>
+             </item>
+             <item>
+               <widget class="QCheckBox" name="coveringCheckBox">
+                 <property name="text">
+                   <string>Calculer le recouvrement</string>
+                 </property>
+                 <property name="styleSheet">
+                   <string>QCheckBox { color: #27ae60; font-weight: bold; }</string>
+                 </property>
+               </widget>
+             </item>
+             <item>
+               <spacer name="coverageHorizontalSpacer">
+                 <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                   <size>
+                     <width>40</width>
+                     <height>20</height>
+                   </size>
+                 </property>
+               </spacer>
+             </item>
+           </layout>
+         </item>
+         <!-- Texte d'aide -->
+         <item>
+           <widget class="QLabel" name="coverageHelpLabel">
+             <property name="text">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:9pt; color:#7f8c8d; font-style:italic;&quot;&gt;• Par défaut : calcule avec l'interrang saisi&lt;br/&gt;• Pourcentage : optimise l'interrang pour atteindre ce taux&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="wordWrap">
+               <bool>true</bool>
+             </property>
+           </widget>
+         </item>
+       </layout>
+     </widget>
+   </item>
+
+   <!-- Spacer flexible -->
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Expanding</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+
+   <!-- Bouton de génération -->
+   <item>
+    <widget class="QPushButton" name="generateButton">
+     <property name="text">
+      <string>Générer l'implantation des panneaux</string>
+     </property>
+     <property name="icon">
+	  <iconset>
+	   <normaloff>../icons/solar-energy.svg</normaloff>../icons/solar-energy.svg
+	  </iconset>
+	 </property>
+	 <property name="iconSize">
+      <size>
+        <width>32</width>
+        <height>32</height>
+      </size>
+    </property>
+	 <property name="styleSheet">
+      <string>QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 10pt;
+    font-weight: bold;
+    border-radius: 6px;
+}
+QPushButton:hover {
+    background-color: #2980b9;
+}
+QPushButton:pressed {
+    background-color: #21618c;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>50</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
