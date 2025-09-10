@@ -19,72 +19,197 @@ class TracingError(Exception):
     pass
 
 
+class SpatialFilter:
+    """
+    Filtre spatial pour optimiser la sélection des panneaux candidats.
+    """
+    
+    def __init__(self, h_spacing, v_spacing, orientation=0.0):
+        """Initialisation du filtre spatial."""
+        self.h_spacing = h_spacing
+        self.v_spacing = v_spacing
+        self.orientation = orientation
+        self.tracker = Config.is_tracker_mode(orientation)
+        
+        # Calcul des tolérances
+        self.tol_x, self.tol_y = Config.get_tolerances(h_spacing, v_spacing, orientation)
+            
+    def get_panel_dimensions(self, panneau):
+        """Calcule les dimensions d'un panneau."""
+        coords = panneau["coords_norm"]
+        xs = [pt[0] for pt in coords]
+        ys = [pt[1] for pt in coords]
+        
+        panel_width = max(xs) - min(xs)
+        panel_height = max(ys) - min(ys)
+        
+        return panel_width, panel_height
+    
+    def get_uniform_bounding_box(self, panneau):
+        """
+        Calcule une zone tampon uniforme autour d'un panneau.
+        Zone tampon = la longueur du panneau dans toutes les directions.
+        """
+        coords = panneau["coords_norm"]
+        
+        # Centre du panneau
+        center_x = sum(pt[0] for pt in coords) / len(coords)
+        center_y = sum(pt[1] for pt in coords) / len(coords)
+        
+        # Dimensions du panneau
+        panel_width, panel_height = self.get_panel_dimensions(panneau)
+        max_dimension = max(panel_width, panel_height)
+        
+        # Zone tampon
+        buffer_size = max_dimension
+        
+        bbox = (
+            center_x - buffer_size,  # x_min
+            center_x + buffer_size,  # x_max  
+            center_y - buffer_size,  # y_min
+            center_y + buffer_size   # y_max
+        )
+        
+        return bbox
+    
+    def is_in_bounding_box(self, panneau, bbox):
+        """Vérifie si un panneau est dans la zone tampon."""
+        x_min, x_max, y_min, y_max = bbox
+        coords = panneau["coords_norm"]
+        
+        # Vérifie si au moins un point du panneau est dans la bbox
+        for pt in coords:
+            if x_min <= pt[0] <= x_max and y_min <= pt[1] <= y_max:
+                return True
+        
+        # Vérifie si le centre du panneau est dans la bbox
+        center_x = sum(pt[0] for pt in coords) / len(coords)
+        center_y = sum(pt[1] for pt in coords) / len(coords)
+        
+        return x_min <= center_x <= x_max and y_min <= center_y <= y_max
+    
+    def filter_candidates(self, panneau, candidats, sort_direction="distance"):
+        """
+        Filtre les candidats avec la zone tampon.
+        """
+        if not candidats:
+            return []
+        
+        # Zone tampon
+        bbox = self.get_uniform_bounding_box(panneau)
+        filtered = [p for p in candidats if self.is_in_bounding_box(p, bbox)]
+        
+        # Tri selon la direction demandée
+        if sort_direction == "distance":
+            ref_center_x = sum(pt[0] for pt in panneau["coords_norm"]) / 4
+            ref_center_y = sum(pt[1] for pt in panneau["coords_norm"]) / 4
+            
+            def distance_to_ref(p):
+                p_center_x = sum(pt[0] for pt in p["coords_norm"]) / 4
+                p_center_y = sum(pt[1] for pt in p["coords_norm"]) / 4
+                return ((p_center_x - ref_center_x)**2 + (p_center_y - ref_center_y)**2)**0.5
+            
+            filtered.sort(key=distance_to_ref)
+            
+        elif sort_direction == "x_asc":
+            # Trie par X croissant (gauche vers droite)
+            filtered.sort(key=lambda p: min(pt[0] for pt in p["coords_norm"]))
+            
+        elif sort_direction == "x_desc":
+            # Trie par X décroissant (droite vers gauche)
+            filtered.sort(key=lambda p: max(pt[0] for pt in p["coords_norm"]), reverse=True)
+            
+        elif sort_direction == "y_asc":
+            # Trie par Y croissant (bas vers haut)
+            filtered.sort(key=lambda p: min(pt[1] for pt in p["coords_norm"]))
+            
+        elif sort_direction == "y_desc":
+            # Trie par Y décroissant (haut vers bas)
+            filtered.sort(key=lambda p: max(pt[1] for pt in p["coords_norm"]), reverse=True)
+        
+        return filtered
+    
+    def filter_candidates_right(self, panneau, candidats):
+        """Filtre les candidats vers la droite (pour panneau_a_droite)."""
+        return self.filter_candidates(panneau, candidats, "x_asc")
+    
+    def filter_candidates_left(self, panneau, candidats):
+        """Filtre les candidats vers la gauche (pour panneau_a_gauche)."""
+        return self.filter_candidates(panneau, candidats, "x_desc")
+    
+    def filter_candidates_up(self, panneau, candidats):
+        """Filtre les candidats vers le haut (pour panneau_au_dessus)."""
+        return self.filter_candidates(panneau, candidats, "y_asc")
+    
+    def filter_candidates_down(self, panneau, candidats):
+        """Filtre les candidats vers le bas (pour panneau_en_dessous, panneau_projection_bas)."""
+        return self.filter_candidates(panneau, candidats, "y_desc")
+
+
 class TracingState:
-    """Encapsule l'état du traçage avec protections intégrées."""
+    """Encapsule l'état du traçage avec protections intelligentes contre les boucles."""
     
     def __init__(self):
         """Initialisation de tracing state."""
         self.s = 0
         self.p = 0
         self.contexte = {"origine": None}
-        self.protection = set()
         self.segments_visites = set()
         
-        # Protections contre boucles infinies
-        self.recursion_depth = 0
-        self.panel_decisions = {}
+        self.panel_coin_visits = {}
+        self.panel_forced_visits = {}
+        
         self.start_time = time.time()
         self.segment_id = 1
         
-        # Limites depuis config
-        self.max_recursion_depth = getattr(Config, 'TRACING_MAX_RECURSION', 200)
-        self.max_decisions_per_panel = getattr(Config, 'TRACING_MAX_DECISIONS_PER_PANEL', 15)
-        self.max_execution_time = getattr(Config, 'TRACING_MAX_EXECUTION_TIME', 120)
-        
-        print(f"TracingState chargé avec qgis.PyQt (version-independent)")
-        
-    def check_safety_limits(self, panel_id=None):
-        """Vérifie toutes les limites de sécurité."""
+        self.max_visits_per_panel_coin = getattr(Config, 'TRACING_MAX_VISITS_PER_PANEL_COIN', 3)
+        self.max_forced_visits_per_panel = getattr(Config, 'TRACING_MAX_FORCED_VISITS_PER_PANEL', 5)
+        self.max_execution_time = getattr(Config, 'TRACING_MAX_EXECUTION_TIME', 300)
+                
+    def _get_coin_hash(self, coin):
+        """Crée un hash stable pour un coin (point)."""
+        return (round(coin[0], 6), round(coin[1], 6))
+    
+    def check_safety_limits(self, panel_id=None, coin=None, forcer=False):
+        """Vérifie les limites de sécurité intelligentes."""
         elapsed = time.time() - self.start_time
         if elapsed > self.max_execution_time:
             raise TracingError(f"Timeout: traçage dépassé {self.max_execution_time}s")
         
-        if self.recursion_depth > self.max_recursion_depth:
-            raise TracingError(f"Récursion trop profonde: {self.recursion_depth}")
-        
         if panel_id is not None:
-            count = self.panel_decisions.get(panel_id, 0)
-            if count > self.max_decisions_per_panel:
-                raise TracingError(f"Trop de décisions pour panneau {panel_id}: {count}")
+            # Vérification des visites forcées
+            if forcer:
+                forced_count = self.panel_forced_visits.get(panel_id, 0)
+                if forced_count >= self.max_forced_visits_per_panel:
+                    raise TracingError(f"Trop de visites forcées pour panneau {panel_id}: {forced_count}")
+            
+            # Vérification des visites (panel_id, coin)
+            if coin is not None:
+                coin_hash = self._get_coin_hash(coin)
+                key = (panel_id, coin_hash)
+                visits = self.panel_coin_visits.get(key, 0)
+                if visits >= self.max_visits_per_panel_coin:
+                    raise TracingError(f"Trop de visites pour panneau {panel_id}, coin {coin_hash}: {visits}")
     
-    def can_process_panel(self, panel_id):
-        """Vérifie si on peut encore traiter ce panneau."""
-        count = self.panel_decisions.get(panel_id, 0)
-        return count < self.max_decisions_per_panel
+    def can_process_panel_coin(self, panel_id, coin, forcer=False):
+        """Vérifie si on peut encore traiter ce panneau/coin."""
+        try:
+            self.check_safety_limits(panel_id, coin, forcer)
+            return True
+        except TracingError:
+            return False
     
-    def increment_panel_decision(self, panel_id):
-        """Incrémente le compteur de décisions pour un panneau."""
-        self.panel_decisions[panel_id] = self.panel_decisions.get(panel_id, 0) + 1
+    def register_visit(self, panel_id, coin, forcer=False):
+        """Enregistre une visite panneau/coin."""
+        # Enregistre visite forcée
+        if forcer:
+            self.panel_forced_visits[panel_id] = self.panel_forced_visits.get(panel_id, 0) + 1
         
-    def is_protected(self, panel_id, coin):
-        """Vérifie si un panneau/coin est déjà protégé."""
-        key = (panel_id, round(coin[0], 6), round(coin[1], 6))
-        return key in self.protection
-    
-    def add_protection(self, panel_id, coin):
-        """Ajoute une protection."""
-        key = (panel_id, round(coin[0], 6), round(coin[1], 6))
-        self.protection.add(key)
-    
-    def enter_recursion(self, panel_id):
-        """Entre dans une nouvelle récursion avec vérifications."""
-        self.check_safety_limits(panel_id)
-        self.recursion_depth += 1
-        self.increment_panel_decision(panel_id)
-    
-    def exit_recursion(self):
-        """Sort d'une récursion."""
-        self.recursion_depth -= 1
+        # Enregistre visite panneau/coin
+        if coin is not None:
+            coin_hash = self._get_coin_hash(coin)
+            key = (panel_id, coin_hash)
+            self.panel_coin_visits[key] = self.panel_coin_visits.get(key, 0) + 1
 
 
 class PanelTracer:
@@ -100,8 +225,7 @@ class PanelTracer:
         self.state = None
         self.layer = None
         self.provider = None
-        
-        print(f"PanelTracer chargé avec qgis.PyQt (version-independent)")
+        self.spatial_filter = None
         
     def run_tracing_algorithm(self, panneaux_layer, h_spacing, v_spacing, orientation):
         """Point d'entrée principal."""
@@ -112,6 +236,9 @@ class PanelTracer:
             # Calcul des tolérances
             self.tol_x, self.tol_y = Config.get_tolerances(h_spacing, v_spacing, orientation)
             self.tracker = Config.is_tracker_mode(orientation)
+            
+            # Initialisation du filtre spatial
+            self.spatial_filter = SpatialFilter(h_spacing, v_spacing, orientation)
             
             # Préparation des panneaux
             panneaux = self._prepare_panels(panneaux_layer)
@@ -137,6 +264,7 @@ class PanelTracer:
                 self._tracer_recouvrement(premier_panneau, pt_depart, lignes, panneau_lignes)
             
             self.layer.updateExtents()
+            
             return self.layer
             
         except TracingError as e:
@@ -208,6 +336,7 @@ class PanelTracer:
         provider = layer.dataProvider()
         provider.addAttributes([QgsField("id", QVariant.Int), QgsField("remarque", QVariant.String)])
         layer.updateFields()
+        #QgsProject.instance().addMapLayer(layer)
         return layer
     
     def _get_starting_point(self, premier_panneau):
@@ -275,84 +404,78 @@ class PanelTracer:
         """Fonction principale de traçage avec protection contre boucles infinies."""
         panel_id = id(panneau)
         
-        # Vérifications de sécurité AVANT traitement
-        if not forcer and self.state.is_protected(panel_id, coin):
+        if not self.state.can_process_panel_coin(panel_id, coin, forcer):
             return
         
-        if not self.state.can_process_panel(panel_id):
-            print(f"Panneau {panel_id} atteint limite de décisions")
-            return
+        # Enregistrer cette visite
+        self.state.register_visit(panel_id, coin, forcer)
         
-        # Entrer dans la récursion avec protections
         try:
-            self.state.enter_recursion(panel_id)
-            self.state.add_protection(panel_id, coin)
-            
             origine = self.state.contexte.get("origine")
             
-            if origine in (None, "decision_2_None", "decision_4_ko", "calcul_projection"):
-                if origine in (None, "decision_2_None", "decision_4_ko"):
+            if origine in (None, "panneau_au_dessus_None", "panneau_projection_haut_ko", "calcul_projection"):
+                if origine in (None, "panneau_au_dessus_None", "panneau_projection_haut_ko"):
                     coin = self._bord_haut(panneau)
-                return self._decision_1(panneau, lignes, panneau_lignes)
+                return self._panneau_a_droite(panneau, lignes, panneau_lignes)
 
-            elif origine in ("decision_1_ko", "decision_6_ok"):
+            elif origine in ("panneau_a_droite_ko", "panneau_a_gauche_ok"):
                 self.state.contexte["origine"] = None
-                return self._decision_3(panneau, lignes, panneau_lignes)
+                return self._panneau_en_dessous(panneau, lignes, panneau_lignes)
 
-            elif origine in ("decision_1_ok", "decision_6_ko"):
+            elif origine in ("panneau_a_droite_ok", "panneau_a_gauche_ko"):
                 self.state.contexte["origine"] = None
-                return self._decision_2(panneau, lignes, panneau_lignes)
+                return self._panneau_au_dessus(panneau, lignes, panneau_lignes)
 
-            elif origine == "decision_2_ko":
+            elif origine == "panneau_au_dessus_ko":
                 self.state.contexte["origine"] = None
-                return self._decision_4(panneau, lignes, panneau_lignes)
+                return self._panneau_projection_haut(panneau, lignes, panneau_lignes)
 
-            elif origine == "decision_2_ok":
+            elif origine == "panneau_au_dessus_ok":
                 self.state.contexte["origine"] = None
-                return self._decision_8(panneau, lignes, panneau_lignes)
+                return self._panneau_sens_2(panneau, lignes, panneau_lignes)
             
-            elif origine == "decision_3_ko":
+            elif origine == "panneau_en_dessous_ko":
                 self.state.contexte["origine"] = None
-                return self._decision_5(panneau, lignes, panneau_lignes)
+                return self._panneau_projection_bas(panneau, lignes, panneau_lignes)
 
-            elif origine == "decision_3_ok":
+            elif origine == "panneau_en_dessous_ok":
                 self.state.contexte["origine"] = None
-                return self._decision_7(panneau, lignes, panneau_lignes)
+                return self._panneau_sens_1(panneau, lignes, panneau_lignes)
 
-            elif origine == "decision_5_ko":
+            elif origine == "panneau_projection_bas_ko":
                 self.state.contexte["origine"] = None
-                return self._decision_6(panneau, lignes, panneau_lignes)
+                return self._panneau_a_gauche(panneau, lignes, panneau_lignes)
 
         except TracingError:
             raise
         except Exception as e:
             print(f"Erreur dans tracer_recouvrement: {e}")
-        finally:
-            self.state.exit_recursion()
     
     # Fonctions de décision
-    def _decision_1(self, panneau, lignes, panneau_lignes):
+    def _panneau_a_droite(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_haut_droit = coords[2]
         ligne_index, panneau_index = panneau_lignes[id(panneau)]
         ligne = lignes[ligne_index]
 
-        if panneau_index + 1 < len(ligne):
-            next_p = ligne[panneau_index + 1]
+        candidats_bruts = ligne[panneau_index + 1:]
+        candidats_filtrés = self.spatial_filter.filter_candidates_right(panneau, candidats_bruts)
+
+        for next_p in candidats_filtrés:
             next_coords = next_p["coords_norm"]
             next_haut_gauche = next_coords[1]
             dx = next_haut_gauche[0] - pt_haut_droit[0]
 
             if 0 <= dx <= self.tol_x:
-                self.state.contexte["origine"] = "decision_1_ok"
+                self.state.contexte["origine"] = "panneau_a_droite_ok"
                 coin = self._liaison_droite(panneau, next_p)
                 return self._tracer_recouvrement(next_p, coin, lignes, panneau_lignes)
 
-        self.state.contexte["origine"] = "decision_1_ko"
+        self.state.contexte["origine"] = "panneau_a_droite_ko"
         coin = self._bord_droite(panneau)
         return self._tracer_recouvrement(panneau, coin, lignes, panneau_lignes)
     
-    def _decision_2(self, panneau, lignes, panneau_lignes):
+    def _panneau_au_dessus(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_haut_gauche = coords[1]
         x_ref, y_ref = pt_haut_gauche
@@ -360,25 +483,26 @@ class PanelTracer:
 
         if ligne_index - 1 < 0:
             self.state.s = 0
-            self.state.contexte["origine"] = "decision_2_None"
+            self.state.contexte["origine"] = "panneau_au_dessus_None"
             return self._tracer_recouvrement(panneau, coords[2], lignes, panneau_lignes)
 
-        ligne_precedente = lignes[ligne_index - 1]
+        candidats_bruts = lignes[ligne_index - 1]
+        candidats_filtrés = self.spatial_filter.filter_candidates_up(panneau, candidats_bruts)
 
-        for p2 in ligne_precedente:
+        for p2 in candidats_filtrés:
             coords2 = p2["coords_norm"]
             pt_bas_gauche = coords2[0]
             x2, y2 = pt_bas_gauche
 
             if abs(x_ref - x2) < 1e-6 and 0 < (y2 - y_ref) <= self.tol_y:
-                self.state.contexte["origine"] = "decision_2_ok"
+                self.state.contexte["origine"] = "panneau_au_dessus_ok"
                 coin = self._liaison_haute(panneau, p2)
                 return self._tracer_recouvrement(p2, coin, lignes, panneau_lignes)
 
-        self.state.contexte["origine"] = "decision_2_ko"
+        self.state.contexte["origine"] = "panneau_au_dessus_ko"
         return self._tracer_recouvrement(panneau, pt_haut_gauche, lignes, panneau_lignes, forcer=True)
     
-    def _decision_3(self, panneau, lignes, panneau_lignes):
+    def _panneau_en_dessous(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_bas_droit = coords[3]
         x_ref, y_ref = pt_bas_droit
@@ -387,25 +511,26 @@ class PanelTracer:
         if ligne_index + 1 >= len(lignes):
             coin = self._bord_bas(panneau)
             self.state.s = 1
-            self.state.contexte["origine"] = 'decision_5_ko'
+            self.state.contexte["origine"] = 'panneau_projection_bas_ko'
             return self._tracer_recouvrement(panneau, coin, lignes, panneau_lignes)
 
-        ligne_suivante = lignes[ligne_index + 1]
+        candidats_bruts = lignes[ligne_index + 1]
+        candidats_filtrés = self.spatial_filter.filter_candidates_down(panneau, candidats_bruts)
 
-        for p2 in ligne_suivante:
+        for p2 in candidats_filtrés:
             coords2 = p2["coords_norm"]
             pt_haut_droit = coords2[2]
             x2, y2 = pt_haut_droit
 
             if abs(x_ref - x2) < 1e-6 and 0 < (y_ref - y2) <= self.tol_y:
-                self.state.contexte["origine"] = "decision_3_ok"
+                self.state.contexte["origine"] = "panneau_en_dessous_ok"
                 coin = self._liaison_basse(panneau, p2)
                 return self._tracer_recouvrement(p2, coin, lignes, panneau_lignes)
 
-        self.state.contexte["origine"] = "decision_3_ko"
+        self.state.contexte["origine"] = "panneau_en_dessous_ko"
         return self._tracer_recouvrement(panneau, pt_bas_droit, lignes, panneau_lignes, forcer=True)
 
-    def _decision_4(self, panneau, lignes, panneau_lignes):
+    def _panneau_projection_haut(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_haut_gauche = coords[1]
         pt_haut_droit = coords[2]
@@ -413,9 +538,11 @@ class PanelTracer:
         x2 = pt_haut_droit[0]
         y = coords[1][1]
         ligne_index, _ = panneau_lignes[id(panneau)]
-        ligne_precedente = lignes[ligne_index - 1]
+        
+        candidats_bruts = lignes[ligne_index - 1]
+        candidats_filtrés = self.spatial_filter.filter_candidates_up(panneau, candidats_bruts)
 
-        for p2 in ligne_precedente:
+        for p2 in candidats_filtrés:
             coords2 = p2["coords_norm"]
             x1_cible = coords2[0][0]
             x2_cible = coords2[3][0]
@@ -431,10 +558,10 @@ class PanelTracer:
                 return self._calcul_projection(panneau, lignes, panneau_lignes, p2)
 
         self.state.s = 0
-        self.state.contexte["origine"] = "decision_4_ko"
+        self.state.contexte["origine"] = "panneau_projection_haut_ko"
         return self._tracer_recouvrement(panneau, pt_haut_droit, lignes, panneau_lignes)
     
-    def _decision_5(self, panneau, lignes, panneau_lignes):
+    def _panneau_projection_bas(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_bas_gauche = coords[0]
         pt_bas_droit = coords[3]
@@ -442,9 +569,12 @@ class PanelTracer:
         x2 = pt_bas_droit[0]
         y = coords[0][1]
         ligne_index, _ = panneau_lignes[id(panneau)]
-        ligne_suivante = lignes[ligne_index + 1]
         
-        for p2 in reversed(ligne_suivante):
+        candidats_bruts = lignes[ligne_index + 1]
+        candidats_filtrés = self.spatial_filter.filter_candidates_down(panneau, candidats_bruts)
+        candidats_filtrés.reverse()  # Garder l'ordre reversed de l'original
+        
+        for p2 in candidats_filtrés:
             coords2 = p2["coords_norm"]
             x1_cible = coords2[1][0]
             x2_cible = coords2[2][0]
@@ -461,10 +591,10 @@ class PanelTracer:
         
         coin = self._bord_bas(panneau)
         self.state.s = 1
-        self.state.contexte["origine"] = 'decision_5_ko'
+        self.state.contexte["origine"] = 'panneau_projection_bas_ko'
         return self._tracer_recouvrement(panneau, coin, lignes, panneau_lignes)
 
-    def _decision_6(self, panneau, lignes, panneau_lignes):
+    def _panneau_a_gauche(self, panneau, lignes, panneau_lignes):
         coords = panneau["coords_norm"]
         pt_bas_gauche = coords[0]
         x_ref, y_ref = pt_bas_gauche
@@ -472,40 +602,42 @@ class PanelTracer:
         ligne = lignes[ligne_index]
 
         if panneau_index - 1 >= 0:
-            prev_p = ligne[panneau_index - 1]
-            prev_coords = prev_p["coords_norm"]
-            prev_bas_droit = prev_coords[3]
-            x2, y2 = prev_bas_droit
-            dx = x_ref - x2
-            if 0 < dx <= self.tol_x:
-                self.state.contexte["origine"] = "decision_6_ok"
-                coin = self._liaison_gauche(panneau, prev_p)
-                return self._tracer_recouvrement(prev_p, coin, lignes, panneau_lignes)
+            candidats_bruts = ligne[:panneau_index]
+            candidats_filtrés = self.spatial_filter.filter_candidates_left(panneau, candidats_bruts)
+
+            for prev_p in candidats_filtrés:
+                prev_coords = prev_p["coords_norm"]
+                prev_bas_droit = prev_coords[3]
+                x2, y2 = prev_bas_droit
+                dx = x_ref - x2
+                
+                if 0 < dx <= self.tol_x:
+                    self.state.contexte["origine"] = "panneau_a_gauche_ok"
+                    coin = self._liaison_gauche(panneau, prev_p)
+                    return self._tracer_recouvrement(prev_p, coin, lignes, panneau_lignes)
 
         coin = self._bord_gauche(panneau)
-        self.state.contexte["origine"] = "decision_6_ko"
+        self.state.contexte["origine"] = "panneau_a_gauche_ko"
         return self._tracer_recouvrement(panneau, coin, lignes, panneau_lignes)
 
-    def _decision_7(self, panneau, lignes, panneau_lignes):
+    def _panneau_sens_1(self, panneau, lignes, panneau_lignes):
         if self.state.s == 0:
-            return self._decision_1(panneau, lignes, panneau_lignes)
+            return self._panneau_a_droite(panneau, lignes, panneau_lignes)
         else:
             self._bord_droite(panneau)
-            return self._decision_3(panneau, lignes, panneau_lignes)
+            return self._panneau_en_dessous(panneau, lignes, panneau_lignes)
 
-    def _decision_8(self, panneau, lignes, panneau_lignes):
+    def _panneau_sens_2(self, panneau, lignes, panneau_lignes):
         if self.state.s == 0 and not self.tracker:
             self._bord_gauche(panneau)
-            return self._decision_2(panneau, lignes, panneau_lignes)
+            return self._panneau_au_dessus(panneau, lignes, panneau_lignes)
         else:
-            return self._decision_6(panneau, lignes, panneau_lignes)
+            return self._panneau_a_gauche(panneau, lignes, panneau_lignes)
     
     def _chevauchement_sur_x(self, x1, x2, x1_cible, x2_cible):
-        """Détection de chevauchement sur X."""
         return max(x1, x1_cible) <= min(x2, x2_cible)
     
     def _calcul_projection(self, panneau, lignes, panneau_lignes, panneau_cible):
-        """Calcul de projection."""
         coords = panneau["coords_norm"]
         coords_cible = panneau_cible["coords_norm"]
         
@@ -523,7 +655,7 @@ class PanelTracer:
                 self._add_segment(pt_depart, pt_proj, "Liaison haute alternative 1")
                 self._add_segment(pt_proj, pt_haut_gauche, "Bord haut alternatif 1")
                 self._bord_gauche(panneau_cible)
-                return self._decision_2(panneau_cible, lignes, panneau_lignes)
+                return self._panneau_au_dessus(panneau_cible, lignes, panneau_lignes)
             else:
                 return None        
         
@@ -558,7 +690,7 @@ class PanelTracer:
                 pt_proj = (x_proj, y1)
                 self._add_segment(pt_depart, pt_proj, "Liaison basse alternative 1")
                 self._add_segment(pt_proj, pt_bas_gauche_cible, "Bord bas alternatif 1")
-                return self._decision_6(panneau_cible, lignes, panneau_lignes)
+                return self._panneau_a_gauche(panneau_cible, lignes, panneau_lignes)
             else:
                 return None
             
@@ -576,7 +708,7 @@ class PanelTracer:
                 self._add_segment(pt_depart, pt_proj, "Liaison basse alternative 2")
                 self._add_segment(pt_proj, pt_bas_droit, "Bord bas alternatif 2")
                 coin = self._bord_droite(panneau_cible)
-                self.state.contexte["origine"] = 'decision_1_ko'
+                self.state.contexte["origine"] = 'panneau_a_droite_ko'
                 return self._tracer_recouvrement(panneau_cible, coin, lignes, panneau_lignes)
             else:
                 return None
@@ -590,7 +722,7 @@ class TracingLogic:
     def __init__(self):
         """Initialisation de tracing logic."""
         self.tracer = PanelTracer()
-        print(f"TracingLogic chargé avec qgis.PyQt (version-independent)")
+        print(f"TracingLogic chargé avec protection récursion intelligente")
     
     def run_tracing_algorithm(self, panneaux_layer, h_spacing, v_spacing, orientation):
         """Point d'entrée principal."""

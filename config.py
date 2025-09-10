@@ -14,7 +14,7 @@ class Config:
     
     # ========== MÉTADONNÉES DU PLUGIN ==========
     PLUGIN_NAME = "SolarPanelGenerator"
-    PLUGIN_VERSION = "1.0-compatible"
+    PLUGIN_VERSION = "1.1-compatible"
     PLUGIN_MENU_NAME = "SolarPanelGenerator"
     
     # ========== VALEURS PAR DÉFAUT DE L'INTERFACE ==========
@@ -160,9 +160,9 @@ class Config:
     
     # ========== PARAMÈTRES DE SÉCURITÉ POUR LE TRAÇAGE ==========
     # Limites de sécurité pour éviter les boucles infinies
-    TRACING_MAX_RECURSION = 200
-    TRACING_MAX_DECISIONS_PER_PANEL = 15
-    TRACING_MAX_EXECUTION_TIME = 120  # secondes
+    TRACING_MAX_VISITS_PER_PANEL_COIN = 3
+    TRACING_MAX_FORCED_VISITS_PER_PANEL = 5
+    TRACING_MAX_EXECUTION_TIME = 300
     
     # Configuration de debug pour le traçage
     TRACING_DEBUG_MODE = False

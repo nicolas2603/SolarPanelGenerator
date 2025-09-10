@@ -11,6 +11,14 @@
       "description": "Panneau standard 27.68x4.95m - Configuration classique",
       "manufacturer": "Générique",
       "power": "650W"
+    },
+	"Tracker": {
+      "name": "Tracker",
+      "length": 35.5,
+      "width": 4.8,
+      "description": "Tracker standard 35.5x4.8m - Configuration classique",
+      "manufacturer": "Générique",
+      "power": "650W"
     }
   }
 }

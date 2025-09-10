@@ -43,4 +43,4 @@ def classFactory(iface):
 # Metadata de compatibilité pour QGIS
 __qt5_compatible__ = True
 __qt6_compatible__ = True
-__version__ = "1.0"
+__version__ = "1.1"
