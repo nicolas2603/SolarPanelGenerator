@@ -58,7 +58,11 @@ class SpatialFilter:
         
         # Dimensions du panneau
         panel_width, panel_height = self.get_panel_dimensions(panneau)
-        max_dimension = max(panel_width, panel_height)
+        table_type = panneau.get("table_type", "full table")       
+        if table_type == "half table":
+            max_dimension = max(panel_width * 2, panel_height)
+        else:
+            max_dimension = max(panel_width, panel_height)
         
         # Zone tampon
         buffer_size = max_dimension
@@ -289,6 +293,12 @@ class PanelTracer:
                     centroid = poly.centroid
                     mean_y = sum(pt[1] for pt in coords) / len(coords)
                     mean_x = sum(pt[0] for pt in coords) / len(coords)
+                    table_type = "full table"
+                    try:
+                        if "table" in feat.fields().names():
+                            table_type = feat["table"]
+                    except:
+                        pass
                     panneaux.append({
                         "geometry": poly,
                         "centroid": centroid,
@@ -296,7 +306,8 @@ class PanelTracer:
                         "mean_x": mean_x,
                         "coords": coords,
                         "id": feat["id"] if "id" in feat.fields().names() else feat.id(),
-                        "qgs_geometry": g
+                        "qgs_geometry": g,
+                        "table_type": table_type
                     })
         
         # Normalisation des coordonnées pour tracker
