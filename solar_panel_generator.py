@@ -38,9 +38,6 @@ class SolarPanelGeneratorPlugin:
         self.dialog = None
         self.translator = None
         
-        self.plugin_name = "SolarPanelGenerator"
-        self.plugin_version = "1.0"
-        
         print(f"SolarPanelGenerator chargé avec qgis.PyQt (version-independent)")
         
     def initGui(self):
