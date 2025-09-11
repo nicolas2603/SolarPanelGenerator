@@ -13,6 +13,7 @@ from qgis.PyQt.QtGui import QColor
 import processing
 
 from .tracing_logic import TracingLogic
+from ..qt_detection import get_label_placement_over_point, are_label_enums_available
 
 
 class CoverageLogic:
@@ -163,11 +164,28 @@ class CoverageLogic:
 
         QgsProject.instance().addMapLayer(recouvrement_layer)
         
-        # Configuration des étiquettes
+        # Configuration des étiquettes avec détection Qt
         label_settings = QgsPalLayerSettings()
         label_settings.fieldName = 'taux'
-        label_settings.placement = QgsPalLayerSettings.OverPoint
-        label_settings.enabled = True
+        
+        # Utilisation de la détection Qt pour le placement
+        if are_label_enums_available():
+            placement_constant = get_label_placement_over_point()
+            if placement_constant is not None:
+                label_settings.placement = placement_constant
+                label_settings.enabled = True
+            else:
+                # Fallback si la détection échoue
+                label_settings.enabled = False
+                recouvrement_layer.setLabelsEnabled(False)
+                recouvrement_layer.triggerRepaint()
+                return
+        else:
+            # Pas d'énumérations disponibles
+            label_settings.enabled = False
+            recouvrement_layer.setLabelsEnabled(False)
+            recouvrement_layer.triggerRepaint()
+            return
 
         # Configuration du texte (taille, couleur)
         text_format = QgsTextFormat()

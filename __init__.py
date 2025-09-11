@@ -18,7 +18,7 @@ if not is_qt_compatible():
 
 def classFactory(iface):
     """
-    Charge la classe SolarPanelGenerator.
+    Charge la classe SolarPanelGenerator avec informations Qt.
     
     Args:
         iface: QGIS interface instance
@@ -29,10 +29,13 @@ def classFactory(iface):
     # Import conditionnel pour éviter les erreurs Qt
     try:
         from .solar_panel_generator import SolarPanelGeneratorPlugin
+        from .qt_detection import log_qt_info, get_qt_compatibility
         
-        # Log de la compatibilité Qt
+        # Log de la compatibilité Qt (optionnel)
+        log_qt_info()
+        
         compatibility = get_qt_compatibility()
-        print(f"SolarPanelGenerator: Chargé avec compatibilité Qt5/Qt6: {compatibility}")
+        print(f"SolarPanelGenerator: Chargé avec Qt{compatibility.get('qt_version', 'unknown')}")
         
         return SolarPanelGeneratorPlugin(iface)
         

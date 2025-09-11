@@ -16,6 +16,7 @@ from qgis.PyQt import QtWidgets, uic
 
 from qgis.core import *
 
+from ..qt_detection import get_window_modal
 from ..config import Config
 from ..utils.parameter_validator import ParameterValidator, ValidationError, ParameterNormalizer
 from ..utils.layer_helpers import LayerHelpers
@@ -394,7 +395,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             self.iface.mainWindow()
         )
         progress.setWindowTitle(Config.MESSAGES['progress_title'])
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(get_window_modal())
         progress.show()
         progress.setValue(0)
         QApplication.processEvents()
