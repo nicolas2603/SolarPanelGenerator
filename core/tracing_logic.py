@@ -756,7 +756,7 @@ class PanelTracer:
         provider = layer.dataProvider()
         provider.addAttributes([QgsField("id", QVariant.Int), QgsField("remarque", QVariant.String)])
         layer.updateFields()
-        QgsProject.instance().addMapLayer(layer)
+        #QgsProject.instance().addMapLayer(layer)
         return layer
     
     def _get_starting_point(self, premier_panneau):
