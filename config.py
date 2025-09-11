@@ -24,7 +24,7 @@ class Config:
     # ========== PARAMÈTRES D'OPTIMISATION ==========
     V_SPACING_MAX = 100.0
     V_SPACING_STEP = 0.5
-    OPTIMIZATION_STEPS = 10
+    OPTIMIZATION_STEPS = 5
     
     # Modes d'ancrage pour l'optimisation
     ANCHOR_MODES = ["bottom_left", "bottom_right", "top_left", "top_right"]
