@@ -251,7 +251,8 @@ class PanelTracer:
         try:
             # Initialisation de l'état
             self.state = TracingState()
-            
+            print(f"🆕 NOUVEAU TracingState créé: s={self.state.s}, p={self.state.p}")
+        
             # Calcul des tolérances
             self.tol_x, self.tol_y = Config.get_tolerances(h_spacing, v_spacing, orientation)
             self.tracker = Config.is_tracker_mode(orientation)
@@ -403,6 +404,7 @@ class PanelTracer:
             print(f"Erreur dans tracer_recouvrement: {e}")
     
     def _panneau_a_droite(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_a_droite: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_haut_droit = coords[2]
         ligne_index, panneau_index = panneau_lignes[id(panneau)]
@@ -427,6 +429,7 @@ class PanelTracer:
         self._add_call('tracer_recouvrement', panneau, coin, lignes, panneau_lignes, False)
     
     def _panneau_au_dessus(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_au_dessus: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_haut_gauche = coords[1]
         x_ref, y_ref = pt_haut_gauche
@@ -456,6 +459,7 @@ class PanelTracer:
         self._add_call('tracer_recouvrement', panneau, pt_haut_gauche, lignes, panneau_lignes, True)
     
     def _panneau_en_dessous(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_en_dessous: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_bas_droit = coords[3]
         x_ref, y_ref = pt_bas_droit
@@ -486,6 +490,7 @@ class PanelTracer:
         self._add_call('tracer_recouvrement', panneau, pt_bas_droit, lignes, panneau_lignes, True)
 
     def _panneau_projection_haut(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_projection_haut: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_haut_gauche = coords[1]
         pt_haut_droit = coords[2]
@@ -518,13 +523,14 @@ class PanelTracer:
         self._add_call('tracer_recouvrement', panneau, pt_haut_droit, lignes, panneau_lignes, False)
     
     def _panneau_projection_bas(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_projection_bas: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_bas_gauche = coords[0]
         pt_bas_droit = coords[3]
         x1 = pt_bas_gauche[0]
         x2 = pt_bas_droit[0]
         y = coords[0][1]
-        ligne_index, _ = panneau_lignes[id(panneau)]
+        ligne_index, panneau_index = panneau_lignes[id(panneau)]
         
         candidats_bruts = lignes[ligne_index + 1]
         candidats_filtrés = self.spatial_filter.filter_candidates_down(panneau, candidats_bruts)
@@ -547,11 +553,24 @@ class PanelTracer:
                 return
         
         coin = self._bord_bas(panneau)
-        self.state.s = 1
+        #self.state.s = 1
+        
+        x_max_global = max(
+            max(p["coords_norm"][2][0], p["coords_norm"][3][0])
+            for ligne in lignes 
+            for p in ligne
+        )
+        x_panneau_droit = max(coords[2][0], coords[3][0])
+        est_derniere_colonne_globale = abs(x_panneau_droit - x_max_global) < 0.1
+        if est_derniere_colonne_globale:
+            self.state.s = 1
+            #print(f"Panneau {panneau['id']} en dernière colonne globale (X={x_panneau_droit:.2f}), s=1")
+        
         self.state.contexte["origine"] = 'panneau_projection_bas_ko'
         self._add_call('tracer_recouvrement', panneau, coin, lignes, panneau_lignes, False)
 
     def _panneau_a_gauche(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_projection_bas: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         pt_bas_gauche = coords[0]
         x_ref, y_ref = pt_bas_gauche
@@ -579,6 +598,7 @@ class PanelTracer:
         self._add_call('tracer_recouvrement', panneau, coin, lignes, panneau_lignes, False)
 
     def _panneau_sens_1(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_sens_1: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         if self.state.s == 0:
             self._add_call('panneau_a_droite', panneau, lignes, panneau_lignes)
         else:
@@ -586,6 +606,7 @@ class PanelTracer:
             self._add_call('panneau_en_dessous', panneau, lignes, panneau_lignes)
 
     def _panneau_sens_2(self, panneau, lignes, panneau_lignes):
+        #print(f"_panneau_sens_2: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         if self.state.s == 0 and not self.tracker:
             self._bord_gauche(panneau)
             self._add_call('panneau_au_dessus', panneau, lignes, panneau_lignes)
@@ -593,6 +614,7 @@ class PanelTracer:
             self._add_call('panneau_a_gauche', panneau, lignes, panneau_lignes)
     
     def _calcul_projection(self, panneau, lignes, panneau_lignes, panneau_cible):
+        #print(f"_calcul_projection: s={self.state.s} et p={self.state.p} pour panneau {panneau['id']}")
         coords = panneau["coords_norm"]
         coords_cible = panneau_cible["coords_norm"]
         
@@ -664,7 +686,7 @@ class PanelTracer:
                 self._add_call('tracer_recouvrement', panneau_cible, coin, lignes, panneau_lignes, False)
                 return
     
-    # Méthodes utilitaires (identiques à l'original)
+    # Méthodes utilitaires
     def _prepare_panels(self, panneaux_layer):
         """Préparation des panneaux."""
         features = list(panneaux_layer.getFeatures())
@@ -734,6 +756,7 @@ class PanelTracer:
         provider = layer.dataProvider()
         provider.addAttributes([QgsField("id", QVariant.Int), QgsField("remarque", QVariant.String)])
         layer.updateFields()
+        QgsProject.instance().addMapLayer(layer)
         return layer
     
     def _get_starting_point(self, premier_panneau):
