@@ -440,25 +440,16 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             polygon_geom = polys[0]
             
             # 3 modes distincts
-            if not params['calculate_coverage']:
-                # Mode 1: Génération simple sans recouvrement
-                rects_local = self._optimize_fill_polygon(polygon_geom, params, ilot_id)
-                rects.extend(rects_local)
-                
-            elif not params['optimization_mode']:
-                # Mode 2: Calcul recouvrement avec v_spacing fixe
-                rects_local = self._fill_polygon_with_panels(
-                    polygon_geom, params, ilot_id, v_spacing=params['v_spacing']
-                )
-                rects.extend(rects_local)
-                
-            else:
+            if params['optimization_mode']:
                 # Mode 3: Optimisation v_spacing pour atteindre taux cible
                 rects_local = self._optimize_for_target_coverage(
                     polygon_geom, params, ilot_id, layer
                 )
-                rects.extend(rects_local)
+            else:
+                # Mode 1 et Mode 2: Optimisation du placement (200 configs)
+                rects_local = self._optimize_fill_polygon(polygon_geom, params, ilot_id)
             
+            rects.extend(rects_local)
             return ilot_id + 1
 
         # Traitement multipart/singlepart
