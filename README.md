@@ -5,7 +5,7 @@ Plugin QGIS pour la génération automatique d'implantations de panneaux solaire
 ## Caractéristiques principales
 
 - **Génération automatique** de panneaux photovoltaïques dans des zones polygonales
-- **Optimisation de l'implantation** avec calcul de 400 combinaisons pour interrang fixe
+- **Optimisation de l'implantation** avec calcul de 200 combinaisons pour interrang fixe
 - **Calcul du taux de recouvrement** et implantation possible
 - **Support des trackers solaires** avec orientation verticale
 - **Gestion des demi-tables** pour optimiser l'utilisation de l'espace
@@ -234,5 +234,6 @@ Compatible avec toutes les versions QGIS récentes (Qt5 et Qt6).
 5. Lancer la génération
 
 ## Licence
+
 
 GPL-3.0-or-later - Copyright (C) 2025 Nicolas Lieutenant
