@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 SolarPanelGenerator Plugin Coverage Logic
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Copyright (C) 2025 Nicolas Lieutenant
 """
@@ -164,26 +164,37 @@ class CoverageLogic:
 
         QgsProject.instance().addMapLayer(recouvrement_layer)
         
-        # Configuration des étiquettes avec détection Qt
-        label_settings = QgsPalLayerSettings()
-        label_settings.fieldName = 'taux'
-        
-        # Utilisation de la détection Qt pour le placement
-        if are_label_enums_available():
-            placement_constant = get_label_placement_over_point()
-            if placement_constant is not None:
-                label_settings.placement = placement_constant
-                label_settings.enabled = True
-            else:
-                # Fallback si la détection échoue
+        # Configuration des étiquettes avec gestion robuste Qt5/Qt6
+        try:
+            label_settings = QgsPalLayerSettings()
+            label_settings.fieldName = 'taux'
+            
+            # Test direct d'assignation avec gestion d'erreur
+            placement_assigned = False
+            
+            if are_label_enums_available():
+                placement_constant = get_label_placement_over_point()
+                if placement_constant is not None:
+                    try:
+                        # Test d'assignation directe
+                        label_settings.placement = placement_constant
+                        label_settings.enabled = True
+                        placement_assigned = True
+                    except Exception as e:
+                        print(f"❌ Erreur assignation placement: {e}")
+                        print(f"   Type: {type(placement_constant)}, Valeur: {placement_constant}")
+            
+            if not placement_assigned:
+                # Fallback: désactiver les étiquettes plutôt que de faire échouer
+                print("⚠️ Labels désactivés (incompatibilité Qt)")
                 label_settings.enabled = False
                 recouvrement_layer.setLabelsEnabled(False)
                 recouvrement_layer.triggerRepaint()
                 return
-        else:
-            # Pas d'énumérations disponibles
-            label_settings.enabled = False
-            recouvrement_layer.setLabelsEnabled(False)
+                
+        except Exception as e:
+            print(f"❌ Erreur configuration labels: {e}")
+            recouvrement_layer.setLabelsEnabled(False) 
             recouvrement_layer.triggerRepaint()
             return
 

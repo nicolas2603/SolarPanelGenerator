@@ -8,48 +8,63 @@ Ce fichier gère toutes les incompatibilités Qt5/Qt6 de manière centralisée.
 
 # Import pour forcer la détection Qt
 try:
-    from qgis.PyQt.QtCore import QCoreApplication, Qt
     from qgis.core import QgsPalLayerSettings
     QT_COMPATIBLE = True
     
+    # Variables globales pour les constantes
+    LABEL_PLACEMENT_OVER_POINT = None
+    LABEL_PLACEMENT_AROUND_POINT = None
+    LABEL_PLACEMENT_LINE = None
+    LABEL_ENUM_AVAILABLE = False
+    
     # Détection de la version Qt et export des constantes compatibles
     try:
-        from PyQt6.QtCore import QT_VERSION_STR
+        from PyQt6.QtCore import QT_VERSION_STR, Qt
         QT_VERSION_MAJOR = 6
         print(f"SolarPanelGenerator: Qt6 détecté ({QT_VERSION_STR})")
         
         # Qt6 - constantes dans des sous-modules
         WINDOW_MODAL = Qt.WindowModality.WindowModal
         ALIGN_CENTER = Qt.AlignmentFlag.AlignCenter
-        
-        # CORRECTION CRITIQUE: Constantes QGIS Qt6 - Placement d'étiquettes
+                
+        # Test 1: Nouvelle API Qt6 avec QgsPalLayerSettings.Placement
         try:
-            # QGIS 3.x Qt6: Utiliser LabelPlacement, pas LabelPredefinedPointPosition
-            if hasattr(QgsPalLayerSettings, 'LabelPlacement'):
-                # Nouvelle API Qt6
-                LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.LabelPlacement.OverPoint
-                LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.LabelPlacement.AroundPoint
-                LABEL_PLACEMENT_LINE = QgsPalLayerSettings.LabelPlacement.Line
+            if hasattr(QgsPalLayerSettings, 'Placement'):
+                # API Qt6 moderne
+                LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.Placement.OverPoint
+                LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.Placement.AroundPoint
+                LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Placement.Line
                 LABEL_ENUM_AVAILABLE = True
-                print("✅ Qt6: Énumérations LabelPlacement trouvées")
-            else:
-                # Fallback vers les constantes directes
-                LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.OverPoint
-                LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
-                LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
-                LABEL_ENUM_AVAILABLE = True
-                print("✅ Qt6: Énumérations directes trouvées")
+                
         except AttributeError:
-            # Aucune énumération disponible
-            LABEL_PLACEMENT_OVER_POINT = None
-            LABEL_PLACEMENT_AROUND_POINT = None
-            LABEL_PLACEMENT_LINE = None
-            LABEL_ENUM_AVAILABLE = False
-            print("❌ Qt6: Aucune énumération de placement trouvée")
-            
-    except (ImportError, AttributeError):
+            # Test 2: API Qt6 avec LabelPlacement
+            try:
+                if hasattr(QgsPalLayerSettings, 'LabelPlacement'):
+                    # Enum LabelPlacement existe
+                    enum_class = QgsPalLayerSettings.LabelPlacement
+                    LABEL_PLACEMENT_OVER_POINT = enum_class.OverPoint
+                    LABEL_PLACEMENT_AROUND_POINT = enum_class.AroundPoint
+                    LABEL_PLACEMENT_LINE = enum_class.Line
+                    LABEL_ENUM_AVAILABLE = True
+                    
+            except AttributeError:
+                # Test 3: Constantes directes (fallback Qt6)
+                try:
+                    # Tester si les constantes directes existent
+                    test_val = QgsPalLayerSettings.OverPoint
+                    
+                    # Si pas d'exception, utiliser les constantes directes
+                    LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.OverPoint
+                    LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint  
+                    LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
+                    LABEL_ENUM_AVAILABLE = True
+                    
+                except AttributeError:
+                    LABEL_ENUM_AVAILABLE = False
+        
+    except ImportError:
         try:
-            from PyQt5.QtCore import QT_VERSION_STR
+            from PyQt5.QtCore import QT_VERSION_STR, Qt
             QT_VERSION_MAJOR = 5
             print(f"SolarPanelGenerator: Qt5 détecté ({QT_VERSION_STR})")
             
@@ -57,71 +72,82 @@ try:
             WINDOW_MODAL = Qt.WindowModal
             ALIGN_CENTER = Qt.AlignCenter
             
-            # Constantes QGIS Qt5 - tester le type des énumérations
+            # Constantes QGIS Qt5 - utiliser l'approche la plus compatible
             try:
-                # Vérifier le type de AroundPoint
-                test_around = QgsPalLayerSettings.AroundPoint
-                if 'LabelPlacement' in str(type(test_around)):
-                    # Utiliser AroundPoint si c'est du bon type
+                # Test direct des constantes Qt5
+                LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.OverPoint
+                LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
+                LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
+                LABEL_ENUM_AVAILABLE = True
+                
+            except AttributeError:
+                # Fallback Qt5 avec AroundPoint pour OverPoint
+                try:
                     LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.AroundPoint
                     LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
                     LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
-                    print("✅ Qt5: Utilisation de AroundPoint (LabelPlacement)")
-                else:
-                    # Utiliser les constantes directes
-                    LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.OverPoint
-                    LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
-                    LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
-                    print("✅ Qt5: Énumérations directes utilisées")
-                LABEL_ENUM_AVAILABLE = True
-            except AttributeError:
-                LABEL_PLACEMENT_OVER_POINT = None
-                LABEL_PLACEMENT_AROUND_POINT = None
-                LABEL_PLACEMENT_LINE = None
-                LABEL_ENUM_AVAILABLE = False
-                print("❌ Qt5: Aucune énumération de placement trouvée")
+                    LABEL_ENUM_AVAILABLE = True
+                    
+                except AttributeError:
+                    LABEL_ENUM_AVAILABLE = False
             
-        except (ImportError, AttributeError):
-            # Fallback via qgis.PyQt
-            QT_VERSION_MAJOR = "unknown"
-            print("SolarPanelGenerator: Version Qt inconnue")
-            
-            # Essayer de charger les constantes via qgis.PyQt
+        except ImportError:
+            # Fallback complet via qgis.PyQt
             try:
-                WINDOW_MODAL = Qt.WindowModal
-                ALIGN_CENTER = Qt.AlignCenter
+                from qgis.PyQt.QtCore import Qt
+                QT_VERSION_MAJOR = "unknown"
+                print("SolarPanelGenerator: Version Qt inconnue, utilisation qgis.PyQt")
                 
-                # Test des énumérations de placement
-                if hasattr(QgsPalLayerSettings, 'LabelPlacement'):
-                    # Nouvelle API
-                    LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.LabelPlacement.OverPoint
-                    LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.LabelPlacement.AroundPoint
-                    LABEL_PLACEMENT_LINE = QgsPalLayerSettings.LabelPlacement.Line
-                    LABEL_ENUM_AVAILABLE = True
-                    print("✅ Unknown Qt: Énumérations LabelPlacement trouvées")
-                else:
-                    # API ancienne
-                    LABEL_PLACEMENT_OVER_POINT = QgsPalLayerSettings.OverPoint
-                    LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
-                    LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
-                    LABEL_ENUM_AVAILABLE = True
-                    print("✅ Unknown Qt: Énumérations directes trouvées")
-            except AttributeError:
-                # Valeurs par défaut pour Qt seulement
+                # Constantes Qt basiques
+                WINDOW_MODAL = Qt.WindowModal if hasattr(Qt, 'WindowModal') else 1
+                ALIGN_CENTER = Qt.AlignCenter if hasattr(Qt, 'AlignCenter') else 0x0084
+                
+                # Liste tous les attributs disponibles pour diagnostic
+                available_attrs = [attr for attr in dir(QgsPalLayerSettings) 
+                                 if 'Point' in attr or 'Placement' in attr]
+                
+                # Test par ordre de priorité
+                test_order = [
+                    ('Placement.OverPoint', lambda: QgsPalLayerSettings.Placement.OverPoint),
+                    ('LabelPlacement.OverPoint', lambda: QgsPalLayerSettings.LabelPlacement.OverPoint),
+                    ('OverPoint', lambda: QgsPalLayerSettings.OverPoint),
+                    ('AroundPoint', lambda: QgsPalLayerSettings.AroundPoint),
+                ]
+                
+                for name, getter in test_order:
+                    try:
+                        val = getter()
+                        LABEL_PLACEMENT_OVER_POINT = val
+                        
+                        # Trouver les autres constantes de la même famille
+                        if 'Placement.' in name:
+                            LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.Placement.AroundPoint
+                            LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Placement.Line
+                        elif 'LabelPlacement.' in name:
+                            LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.LabelPlacement.AroundPoint
+                            LABEL_PLACEMENT_LINE = QgsPalLayerSettings.LabelPlacement.Line
+                        else:
+                            LABEL_PLACEMENT_AROUND_POINT = QgsPalLayerSettings.AroundPoint
+                            LABEL_PLACEMENT_LINE = QgsPalLayerSettings.Line
+                        
+                        LABEL_ENUM_AVAILABLE = True
+                        break
+                        
+                    except AttributeError:
+                        continue
+                    
+            except Exception as e:
+                QT_VERSION_MAJOR = "error"
                 WINDOW_MODAL = 1
                 ALIGN_CENTER = 0x0084
-                LABEL_PLACEMENT_OVER_POINT = None
-                LABEL_PLACEMENT_AROUND_POINT = None
-                LABEL_PLACEMENT_LINE = None
                 LABEL_ENUM_AVAILABLE = False
-                print("❌ Unknown Qt: Aucune énumération trouvée, utilisation des valeurs par défaut")
     
-    # Marquer la compatibilité
+    # Marque la compatibilité
     __qt_compatible__ = True
     __supports_qt5__ = True
     __supports_qt6__ = True
     
-except ImportError:
+except ImportError as e:
     QT_COMPATIBLE = False
     __qt_compatible__ = False
     __supports_qt5__ = False
@@ -135,7 +161,6 @@ except ImportError:
     LABEL_PLACEMENT_AROUND_POINT = None
     LABEL_PLACEMENT_LINE = None
     LABEL_ENUM_AVAILABLE = False
-    print("❌ Import Qt échoué complètement")
 
 # Dictionnaire des constantes pour accès facile
 QT_CONSTANTS = {
@@ -187,7 +212,7 @@ def get_label_placement_over_point():
     Retourne LabelPlacement.OverPoint compatible Qt5/Qt6.
     CRITIQUE: Retourne None si aucune énumération valide n'est disponible.
     """
-    return LABEL_PLACEMENT_OVER_POINT  # Peut être None
+    return LABEL_PLACEMENT_OVER_POINT
 
 def get_label_placement_around_point():
     """Retourne LabelPlacement.AroundPoint compatible Qt5/Qt6."""
@@ -209,79 +234,28 @@ def get_qt_constant(name):
     """
     return QT_CONSTANTS.get(name, None)
 
-def log_qt_info():
-    """Affiche les informations de compatibilité Qt."""
-    print(f"=== SolarPanelGenerator Qt Detection ===")
-    print(f"Qt Compatible: {QT_COMPATIBLE}")
-    print(f"Qt Version: {QT_VERSION_MAJOR}")
-    print(f"Constants loaded: {len(QT_CONSTANTS)}")
-    print(f"WindowModal: {WINDOW_MODAL}")
-    print(f"LabelOverPoint: {LABEL_PLACEMENT_OVER_POINT}")
-    print(f"Label Enums Available: {LABEL_ENUM_AVAILABLE}")
-    
-    # NOUVEAU: Test détaillé des énumérations
-    if LABEL_ENUM_AVAILABLE and LABEL_PLACEMENT_OVER_POINT is not None:
-        print(f"LabelOverPoint Type: {type(LABEL_PLACEMENT_OVER_POINT)}")
-        print(f"LabelOverPoint Value: {LABEL_PLACEMENT_OVER_POINT}")
-        
-        # Vérification de la compatibilité
-        try:
-            # Test simple d'assignation
-            test_settings = QgsPalLayerSettings()
-            test_settings.placement = LABEL_PLACEMENT_OVER_POINT
-            print("✅ Assignation de placement réussie")
-        except Exception as e:
-            print(f"❌ Erreur d'assignation: {e}")
-    
-    print(f"========================================")
-
 def test_label_placement():
-    """Teste les placements d'étiquettes disponibles."""
-    print("=== Test Label Placement ===")
+    """
+    Teste les placements d'étiquettes disponibles avec diagnostic complet.
     
-    if LABEL_ENUM_AVAILABLE:
-        try:
-            # Tester l'attribution
-            settings = QgsPalLayerSettings()
-            settings.placement = LABEL_PLACEMENT_OVER_POINT
-            print(f"✅ Label placement fonctionne: {LABEL_PLACEMENT_OVER_POINT}")
-            print(f"   Type: {type(LABEL_PLACEMENT_OVER_POINT)}")
-            return True
-        except Exception as e:
-            print(f"❌ Label placement échoue: {e}")
-            print(f"   Type attendu vs reçu: {type(LABEL_PLACEMENT_OVER_POINT)}")
-            return False
-    else:
-        print("❌ Aucune énumération de label disponible")
+    Returns:
+        bool: True si le test réussit
+    """
+    
+    if not LABEL_ENUM_AVAILABLE:
         return False
-
-def debug_label_enums():
-    """Debug détaillé des énumérations disponibles."""
-    print("=== Debug Label Enums ===")
-    
-    # Test de toutes les possibilités
-    try:
-        print("Test 1: QgsPalLayerSettings.LabelPlacement.OverPoint")
-        val1 = QgsPalLayerSettings.LabelPlacement.OverPoint
-        print(f"   Valeur: {val1}, Type: {type(val1)}")
-    except:
-        print("   ❌ Non disponible")
-    
-    try:
-        print("Test 2: QgsPalLayerSettings.OverPoint")
-        val2 = QgsPalLayerSettings.OverPoint
-        print(f"   Valeur: {val2}, Type: {type(val2)}")
-    except:
-        print("   ❌ Non disponible")
         
-    # Lister tous les attributs disponibles
-    print("Attributs QgsPalLayerSettings:")
-    for attr in dir(QgsPalLayerSettings):
-        if 'Point' in attr or 'Placement' in attr:
-            try:
-                val = getattr(QgsPalLayerSettings, attr)
-                print(f"   {attr}: {val} ({type(val)})")
-            except:
-                print(f"   {attr}: ❌ Erreur d'accès")
+    if LABEL_PLACEMENT_OVER_POINT is None:
+        return False
     
-    print("=========================")
+    try:
+        # Test d'instanciation
+        settings = QgsPalLayerSettings()
+        
+        # Test d'assignation
+        settings.placement = LABEL_PLACEMENT_OVER_POINT
+                    
+        return True
+        
+    except Exception as e:
+        return False

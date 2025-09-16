@@ -251,8 +251,7 @@ class PanelTracer:
         try:
             # Initialisation de l'état
             self.state = TracingState()
-            print(f"🆕 NOUVEAU TracingState créé: s={self.state.s}, p={self.state.p}")
-        
+                    
             # Calcul des tolérances
             self.tol_x, self.tol_y = Config.get_tolerances(h_spacing, v_spacing, orientation)
             self.tracker = Config.is_tracker_mode(orientation)

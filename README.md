@@ -235,5 +235,4 @@ Compatible avec toutes les versions QGIS récentes (Qt5 et Qt6).
 
 ## Licence
 
-
 GPL-3.0-or-later - Copyright (C) 2025 Nicolas Lieutenant

@@ -29,10 +29,7 @@ def classFactory(iface):
     # Import conditionnel pour éviter les erreurs Qt
     try:
         from .solar_panel_generator import SolarPanelGeneratorPlugin
-        from .qt_detection import log_qt_info, get_qt_compatibility
-        
-        # Log de la compatibilité Qt (optionnel)
-        log_qt_info()
+        from .qt_detection import get_qt_compatibility
         
         compatibility = get_qt_compatibility()
         print(f"SolarPanelGenerator: Chargé avec Qt{compatibility.get('qt_version', 'unknown')}")

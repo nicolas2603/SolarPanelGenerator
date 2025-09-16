@@ -31,6 +31,48 @@ class GeometryHelpers:
         if shrunk.isEmpty():
             return [geom]
         expanded = shrunk.buffer(margin, 5)
+        
+        # DEBUG: Créer des couches temporaires pour visualiser
+        from qgis.core import QgsVectorLayer, QgsProject, QgsFeature, QgsFillSymbol
+        from qgis.PyQt.QtGui import QColor
+        
+        # Couche pour shrunk
+        debug_layer_shrunk = QgsVectorLayer("Polygon?crs=EPSG:2154", "DEBUG_Shrunk", "memory")
+        prov_shrunk = debug_layer_shrunk.dataProvider()
+        feat_shrunk = QgsFeature()
+        feat_shrunk.setGeometry(shrunk)
+        prov_shrunk.addFeature(feat_shrunk)
+        debug_layer_shrunk.updateExtents()
+        
+        # Couche pour expanded
+        debug_layer_expanded = QgsVectorLayer("Polygon?crs=EPSG:2154", "DEBUG_Expanded", "memory")
+        prov_expanded = debug_layer_expanded.dataProvider()
+        feat_expanded = QgsFeature()
+        feat_expanded.setGeometry(expanded)
+        prov_expanded.addFeature(feat_expanded)
+        debug_layer_expanded.updateExtents()
+        
+        # Styles différents pour chaque couche
+        # Shrunk en rouge transparent
+        symbol_shrunk = QgsFillSymbol.createSimple({
+            'outline_color': 'red',
+            'outline_width': '2.0',
+            'color': '255,0,0,50'
+        })
+        debug_layer_shrunk.renderer().setSymbol(symbol_shrunk)
+        
+        # Expanded en vert transparent
+        symbol_expanded = QgsFillSymbol.createSimple({
+            'outline_color': 'green',
+            'outline_width': '2.0',
+            'color': '0,255,0,50'
+        })
+        debug_layer_expanded.renderer().setSymbol(symbol_expanded)
+        
+        # Ajouter les couches au projet
+        #QgsProject.instance().addMapLayer(debug_layer_shrunk)
+        #QgsProject.instance().addMapLayer(debug_layer_expanded)
+        
         geoms = []
         if expanded.isMultipart():
             multi = expanded.asMultiPolygon()
