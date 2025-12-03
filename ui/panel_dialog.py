@@ -209,6 +209,31 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
                 
                 self.lengthLineEdit.setToolTip("Longueur du panneau en m")
                 self.widthLineEdit.setToolTip("Largeur du panneau en m")
+                
+                # Calcul automatique du nombre de modules par table depuis le nom du modèle
+                model_name = model.get('name', current_data)
+                modules_per_table = self._extract_modules_from_model_name(model_name)
+                if modules_per_table is not None:
+                    self.pertableLineEdit.setText(str(modules_per_table))
+                    self.pertableLineEdit.setToolTip(f"Calculé automatiquement depuis {model_name}")
+    
+    def _extract_modules_from_model_name(self, model_name):
+        """Extrait le nombre de modules par table depuis le nom du modèle."""
+        import re
+        
+        # Pattern pour capturer XVY (ex: 2V24, 1V27, 3V30)
+        pattern = r'(\d+)V(\d+)'
+        match = re.search(pattern, model_name, re.IGNORECASE)
+        
+        if match:
+            try:
+                x = int(match.group(1))
+                y = int(match.group(2))
+                return x * y
+            except (ValueError, IndexError):
+                return None
+        
+        return None
 
     def reset_model_selection(self):
         """Remet la sélection sur 'Saisie manuelle'."""
@@ -325,6 +350,8 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
                 'calculate_coverage': self.coveringCheckBox.isChecked(),
                 'selection_only': self.selectionOnlyCheckBox.isChecked(),
                 'layer_name': self.layerComboBox.currentText(),
+                'puissance': self.puissanceLineEdit.text(),
+                'modules_per_table': self.pertableLineEdit.text(),
             }
 
             layer_name = self.layerComboBox.currentText()
@@ -369,6 +396,8 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             # Ajoute les nouveaux paramètres
             validated_params['optimization_mode'] = raw_params['optimization_mode']
             validated_params['target_coverage_rate'] = raw_params['target_coverage_rate']
+            validated_params['puissance'] = raw_params['puissance']
+            validated_params['modules_per_table'] = raw_params['modules_per_table']
             
             # Normalisation
             normalized_params = ParameterNormalizer.normalize_parameters(validated_params)
@@ -451,7 +480,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
                 ilot_id = self._process_feature(geom, params, rects, ilot_id, layer)
                 progress.setValue(idx + 1)
             
-            self._create_panels_layer(rects, layer.crs().authid())
+            self._create_panels_layer(rects, layer.crs().authid(), params)
             
             # Calcul de recouvrement selon le mode choisi
             if params['calculate_coverage']:
@@ -570,6 +599,52 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             self.iface, params['h_spacing'], params['orientation']
         )
 
+    def _calculate_total_power(self, full_count, half_count):
+        """
+        Calcule la puissance totale estimée en MWc.
+        
+        Args:
+            full_count (int): Nombre de tables entières
+            half_count (int): Nombre de demi-tables
+            
+        Returns:
+            str: Puissance formatée avec unité ou None si données manquantes
+        """
+        try:
+            # Récupération des valeurs depuis l'interface
+            puissance_text = self.puissanceLineEdit.text().strip()
+            modules_per_table_text = self.pertableLineEdit.text().strip()
+            
+            # Vérification que les champs sont remplis et valides
+            if not puissance_text or not modules_per_table_text:
+                return None
+            
+            puissance = float(puissance_text)
+            modules_per_table = float(modules_per_table_text)
+            
+            # Vérification que les valeurs sont cohérentes
+            if puissance <= 0 or modules_per_table <= 0:
+                return None
+            
+            # Formule : (((nombre de full table * nombre de modules par tables) + 
+            #             (nombre de half table * (nombre de modules par tables / 2))) * puissance) / 1000000
+            puissance_totale = (
+                ((full_count * modules_per_table) + 
+                 (half_count * (modules_per_table / 2))) * puissance
+            ) / 1000000
+            
+            # Formatage avec unité appropriée
+            if puissance_totale >= 1.0:
+                return f"{puissance_totale:.2f} MWc"
+            else:
+                # Si < 1 MWc, afficher en kWc
+                puissance_kwc = puissance_totale * 1000
+                return f"{puissance_kwc:.1f} kWc"
+            
+        except (ValueError, ZeroDivisionError, AttributeError):
+            # En cas d'erreur, retourner None (pas d'affichage de puissance)
+            return None
+
     def _fill_polygon_with_panels(self, polygon, params, ilot_id, v_spacing=None, anchor_mode="bottom_left"):
         """Délègue au geometry_helpers avec gestion d'erreur."""
         try:
@@ -612,7 +687,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             )
             return None
 
-    def _create_panels_layer(self, rects, crs_authid):
+    def _create_panels_layer(self, rects, crs_authid, params):
         """Création couche panneaux avec gestion d'erreur."""
         try:
             if not rects:
@@ -651,9 +726,20 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             full_count = sum(1 for _, table_type, _, _ in rects if table_type == Config.PANEL_TYPE_FULL)
             half_count = sum(1 for _, table_type, _, _ in rects if table_type == Config.PANEL_TYPE_HALF)
             
-            self.iface.messageBar().pushSuccess(
+            # Calcul de la puissance estimée
+            puissance_totale_str = self._calculate_total_power(full_count, half_count)
+            
+            # Message avec durée infinie (0 = persistant)
+            message = f" {full_count} tables entières et {half_count} demi-tables ({len(rects)} panneaux au total)"
+            if puissance_totale_str:
+                message += f" pour une puissance estimée de {puissance_totale_str}"
+            
+            # Utiliser pushMessage avec Qgis.Success et duration=0 pour message persistant
+            self.iface.messageBar().pushMessage(
                 "Génération réussie", 
-                f"Créé: {full_count} tables entières + {half_count} demi-tables = {len(rects)} panneaux total"
+                message,
+                level=Qgis.Success,
+                duration=0  # Message persistant
             )
             
         except Exception as e:

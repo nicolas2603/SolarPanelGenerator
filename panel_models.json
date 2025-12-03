@@ -4,10 +4,25 @@
   "author": "SolarPanelGenerator Plugin",
   "date_created": "2025-09-01",
   "models": {
-    "2V24": {
+    "1V24": {
+      "name": "1V24",
+      "length": 27.7,
+      "width": 2.45
+    },
+	"2V24": {
       "name": "2V24",
-      "length": 27.68,
-      "width": 4.95
+      "length": 27.7,
+      "width": 4.9
+    },
+	"1V27": {
+      "name": "1V27",
+      "length": 35.5,
+      "width": 2.45
+    },
+	"2V27": {
+      "name": "2V27",
+      "length": 35.5,
+      "width": 4.8
     }
   },
   "modules": {
