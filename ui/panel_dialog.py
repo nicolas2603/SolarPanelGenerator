@@ -22,6 +22,7 @@ from ..utils.parameter_validator import ParameterValidator, ValidationError, Par
 from ..utils.layer_helpers import LayerHelpers
 from ..utils.geometry_helpers import GeometryHelpers
 from ..utils.panel_models_manager import PanelModelsManager
+from ..utils.panel_modules_manager import PanelModulesManager
 from ..core.tracing_logic import TracingLogic
 from ..core.coverage_logic import CoverageLogic
 
@@ -51,6 +52,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tracing_logic = TracingLogic()
         self.coverage_logic = CoverageLogic()
         self.models_manager = PanelModelsManager()
+        self.modules_manager = PanelModulesManager()
         
         # Configuration des connexions
         self.trackerCheckBox.toggled.connect(self.on_tracker_toggled)
@@ -61,6 +63,10 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
         # Connections pour les modèles
         self.modelsComboBox.currentTextChanged.connect(self.on_model_selected)
         self.populate_models_combobox()
+        
+        # Connections pour les modules
+        self.modulesComboBox.currentTextChanged.connect(self.on_modules_selected)
+        self.populate_modules_combobox()
         
         # Validation en temps réel
         self._setup_realtime_validation()
@@ -169,8 +175,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             for name in sorted(model_names):
                 model = self.models_manager.get_model(name)
                 if model:
-                    # Format d'affichage : "CODE - Nom (LxW)"
-                    display_name = f"{name} - {model.get('name', name)} ({model['length']}×{model['width']}m)"
+                    display_name = f"{model.get('name', name)} ({model['length']}×{model['width']}m)"
                     self.modelsComboBox.addItem(display_name, name)
 
         else:
@@ -202,24 +207,60 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.lengthLineEdit.setText(str(model['length']))
                 self.widthLineEdit.setText(str(model['width']))
                 
-                description = model.get('description', 'Aucune description')
-                power = model.get('power', '')
-                power_info = f" ({power})" if power else ""
-                
-                tooltip_text = f"Modèle: {model['name']}\n{description}"
-                self.lengthLineEdit.setToolTip(tooltip_text)
-                self.widthLineEdit.setToolTip(tooltip_text)
-                
-                self.lengthLineEdit.setStyleSheet("")
-                self.widthLineEdit.setStyleSheet("")
-        else:
-            # "Saisie manuelle" sélectionnée - réinitialiser les tooltips
-            self.lengthLineEdit.setToolTip("Longueur du panneau en mètres")
-            self.widthLineEdit.setToolTip("Largeur du panneau en mètres")
+                self.lengthLineEdit.setToolTip("Longueur du panneau en m")
+                self.widthLineEdit.setToolTip("Largeur du panneau en m")
 
     def reset_model_selection(self):
         """Remet la sélection sur 'Saisie manuelle'."""
         self.modelsComboBox.setCurrentIndex(0)  # Premier item = "Saisie manuelle"
+
+    def populate_modules_combobox(self):
+        """Remplis automatiquement la combobox avec les modules du fichier JSON."""
+        self.modulesComboBox.clear()
+        self.modulesComboBox.addItem("Choisir un modules ou saisir manuellement", None)
+        
+        if self.modules_manager.has_modules():
+            self.modulesComboBox.insertSeparator(self.modulesComboBox.count())
+            modules_names = self.modules_manager.get_module_names()
+            for name in sorted(modules_names):
+                modules = self.modules_manager.get_module(name)
+                if modules:
+                    display_name = f"{modules.get('name', name)} ({modules['puissance']}Wc)"
+                    self.modulesComboBox.addItem(display_name, name)
+
+        else:
+            # Aucun modèle trouvé
+            self.modulesComboBox.addItem("(Aucun module disponible)", None)
+            self.modulesComboBox.setEnabled(False)
+        
+        if self.modules_manager.has_modules():
+            tooltip = (
+                "Sélectionnez un module prédéfini pour remplir automatiquement "
+                "la puissance, ou utilisez 'Saisie manuelle'"
+            )
+        else:
+            tooltip = (
+                "Aucun module trouvé dans panel_models.json. "
+                "Placez ce fichier à la racine du plugin pour activer les modules prédéfinis."
+            )
+        
+        self.modulesComboBox.setToolTip(tooltip)
+
+    def on_modules_selected(self):
+        """Appelé automatiquement quand un module est sélectionné."""
+        current_data = self.modulesComboBox.currentData()
+        
+        if current_data:
+            # Un module est sélectionné
+            modules = self.modules_manager.get_module(current_data)
+            if modules:
+                self.puissanceLineEdit.setText(str(modules['puissance']))
+                
+                self.lengthLineEdit.setToolTip("Puissance du module en Wc")
+
+    def reset_modules_selection(self):
+        """Remet la sélection sur 'Saisie manuelle'."""
+        self.modulesComboBox.setCurrentIndex(0)  # Premier item = "Saisie manuelle"
 
     def populate_recouvrement_combobox(self):
         """Remplis recouvrement combobox avec 'Placement par défaut' par défaut."""
@@ -333,7 +374,7 @@ class SolarPanelGeneratorDialog(QtWidgets.QDialog, FORM_CLASS):
             normalized_params = ParameterNormalizer.normalize_parameters(validated_params)
             
             # Vérification de cohérence géométrique
-            ParameterValidator.validate_geometric_consistency(normalized_params)
+            #ParameterValidator.validate_geometric_consistency(normalized_params)
             
             return normalized_params
             

@@ -1,8 +1,8 @@
 [general]
 name=SolarPanelGenerator
-description=Génère une couverture optimisée de panneaux photovoltaïques dans une zone définie. Peut prendre en compte un taux de recouvrement à ne pas dépasser et optimiser automatiquement l'interrang.
-about=Ce plugin permet de générer automatiquement des implantations de panneaux solaires ou de trackers sur des zones définies par des polygones. Il inclut des fonctionnalités avancées d'optimisation du recouvrement et de calcul automatique des espacements optimaux. Copyright(C) 2025 Nicolas Lieutenant. Licence GPL-3.0-or-later.
-version=1.1-compatible
+description=Génère une couverture optimisée de panneaux photovoltaïques dans une zone définie. Peut prendre en compte un taux de couverture à ne pas dépasser et optimiser automatiquement l'interrang.
+about=Ce plugin permet de générer automatiquement des implantations de panneaux solaires ou de trackers sur des zones définies par des polygones. Il inclut des fonctionnalités avancées d'optimisation du couverture et de calcul automatique des espacements optimaux. Copyright(C) 2025 Nicolas Lieutenant. Licence GPL-3.0-or-later.
+version=1.1
 qgisMinimumVersion=3.16
 qgisMaximumVersion=3.99
 
