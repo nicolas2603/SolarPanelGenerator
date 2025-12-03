@@ -14,7 +14,7 @@ class Config:
     
     # ========== MÉTADONNÉES DU PLUGIN ==========
     PLUGIN_NAME = "SolarPanelGenerator"
-    PLUGIN_VERSION = "1.1-compatible"
+    PLUGIN_VERSION = "1.1"
     PLUGIN_MENU_NAME = "SolarPanelGenerator"
     
     # ========== VALEURS PAR DÉFAUT DE L'INTERFACE ==========

@@ -1,24 +1,34 @@
 {
-  "description": "Modèles de panneaux photovoltaïques",
+  "description": "Modèles de panneaux/modules photovoltaïques",
   "version": "1.0",
   "author": "SolarPanelGenerator Plugin",
   "date_created": "2025-09-01",
   "models": {
-    "2V24": {
-      "name": "2V24 Standard",
-      "length": 27.68,
-      "width": 4.95,
-      "description": "Panneau standard 27.68x4.95m - Configuration classique",
-      "manufacturer": "Générique",
-      "power": "650W"
+    "1V24": {
+      "name": "1V24",
+      "length": 27.7,
+      "width": 2.45
     },
-	"Tracker": {
-      "name": "Tracker",
+	"2V24": {
+      "name": "2V24",
+      "length": 27.7,
+      "width": 4.9
+    },
+	"1V27": {
+      "name": "1V27",
       "length": 35.5,
-      "width": 4.8,
-      "description": "Tracker standard 35.5x4.8m - Configuration classique",
-      "manufacturer": "Générique",
-      "power": "650W"
+      "width": 2.45
+    },
+	"2V27": {
+      "name": "2V27",
+      "length": 35.5,
+      "width": 4.8
+    }
+  },
+  "modules": {
+    "JKM650N-78HL4-BDV": {
+      "name": "JKM650N-78HL4-BDV",
+      "puissance": 650
     }
   }
 }
