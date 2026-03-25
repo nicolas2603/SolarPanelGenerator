@@ -2,6 +2,9 @@
 
 Plugin QGIS pour la génération automatique d'implantations de panneaux solaires avec optimisation et calcul de couverture.
 
+![QGIS](https://img.shields.io/badge/QGIS-3.16+-green.svg)
+![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
+
 ## Caractéristiques principales
 
 - **Génération automatique** de panneaux photovoltaïques dans des zones polygonales
@@ -74,3 +77,7 @@ SolarPanelGenerator/
 ## Licence
 
 GPL-3.0-or-later - Copyright (C) 2025 Nicolas Lieutenant
+
+## Auteur
+
+Nicolas Lieutenant
