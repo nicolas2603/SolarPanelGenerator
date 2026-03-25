@@ -76,7 +76,7 @@ SolarPanelGenerator/
 
 ## Licence
 
-GPL-3.0-or-later - Copyright (C) 2025 Nicolas Lieutenant
+GPL-3.0 - Voir [LICENSE](LICENSE)
 
 ## Auteur
 
